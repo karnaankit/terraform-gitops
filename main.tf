@@ -4,10 +4,10 @@ provider "aws" {
 
 terraform {
   backend "s3" {
-    bucket         = "lf-devops-gitops-terraform-state"
+    bucket         = "ankit-gitops-terraform-state"
     key            = "terraform.tfstate"
     region         = "us-east-1"
-    dynamodb_table = "terraform_state"
+    dynamodb_table = "terraform_state_ankit_gitops"
   }
 }
 
@@ -38,7 +38,8 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "tf_backend_bucket
 }
 
 resource "aws_dynamodb_table" "tf_backend_bucket_state_lock" {
-  name           = "terraform_state"
+#  depends_on     = [aws_s3_bucket_object_lock_configuration.tf_backend_bucket_object_lock]
+  name           = "terraform_state_ankit_gitops"
   read_capacity  = 1
   write_capacity = 1
   hash_key       = "LockID"
@@ -51,7 +52,9 @@ resource "aws_dynamodb_table" "tf_backend_bucket_state_lock" {
   }
 }
 
-resource "aws_codecommit_repository" "gitops_demo_repo" {
-  repository_name = var.devops_interns_repo_name
-  description     = "Created for \"GitOps with Terraform\" session"
+resource "aws_s3_bucket" "default" {
+  bucket = var.bucket
+  tags = {
+    Name = var.bucket
+  }
 }
