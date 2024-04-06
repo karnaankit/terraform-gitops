@@ -8,6 +8,8 @@ on:
     types:
       - synchronize
       - opened
+      - closed
+      
     branches:
       - dev
       - main
