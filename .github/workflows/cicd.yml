@@ -88,7 +88,7 @@ jobs:
           AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
       - name: Sync dist folder to S3
         if: github.event.pull_request.merged || github.event_name == 'workflow_dispatch'
-        run: aws s3 sync ./dist s3://ankit-gitops-terraform-$WORKSPACE
+        run: aws s3 sync ./dist s3://ankit-gitops-terraform-${{ needs.resolve-environment.outputs.env_name }}
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
