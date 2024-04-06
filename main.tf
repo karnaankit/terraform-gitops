@@ -34,7 +34,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "tf_backend_bucket
 }
 
 resource "aws_s3_bucket" "default" {
-  bucket = "${var.bucket_name}-${terraform.workspace}"
+  bucket = "${var.bucket}-${terraform.workspace}"
   tags = {
     Name = var.bucket
   }
