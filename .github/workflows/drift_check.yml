@@ -1,0 +1,99 @@
+name: Check for Drift
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 */2 * * *' # Runs every two hours
+
+jobs:
+  check-drift:
+    name: Do Terraform Apply if drift detected
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v2
+      with:
+        terraform_version: 1.5.0
+
+    - name: Terraform format
+      run: terraform fmt -check -recursive
+
+    - name: Terraform init
+      run: terraform init
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+
+    - name: Terraform validate
+      run: terraform validate
+
+    - name: Goto dev workspace
+      run: terraform workspace select -or-create dev
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+
+    - name: Terraform plan
+      id: dev_plan
+      run: |
+        plan=$(terraform plan)
+        if echo "$plan" | grep -q "No changes"; then
+          echo "::set-output name=drift_detected::false"
+        else
+          echo "::set-output name=drift_detected::true"
+        fi
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+
+    - name: Apply Terraform
+      if: steps.dev_plan.outputs.drift_detected == 'true'
+      run: |
+        for i in {1..5}; do
+          terraform apply -auto-approve && break || sleep 15
+        done
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+
+    - name: Goto prod workspace
+      run: terraform workspace select -or-create prod
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+
+    - name: Terraform plan
+      id: plan_prod
+      run: |
+        plan=$(terraform plan)
+        if echo "$plan" | grep -q "No changes"; then
+          echo "::set-output name=drift_detected::false"
+        else
+          echo "::set-output name=drift_detected::true"
+        fi
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+
+    - name: Apply Terraform
+      if: steps.plan_prod.outputs.drift_detected == 'true'
+      run: |
+        for i in {1..5}; do
+          terraform apply -auto-approve && break || sleep 15
+        done
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
