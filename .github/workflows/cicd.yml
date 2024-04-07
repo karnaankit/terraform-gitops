@@ -139,7 +139,7 @@ jobs:
         uses: mathieudutour/github-tag-action@v5.6
         with:
           github_token: ${{ secrets.GH_TOKEN }}
-          custom_tag: ${{ steps.prep.outputs.version }}
+          custom_tag: ${{ steps.prepare.outputs.version }}
           tag_prefix: "gitops"
       - name: Create release
         if: github.event.pull_request.merged
