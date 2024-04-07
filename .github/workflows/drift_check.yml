@@ -56,6 +56,7 @@ jobs:
         AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
 
     - name: Apply Terraform
+      if: steps.dev_plan.outputs.drift_detected == 'true'
       run: |
         for i in {1..5}; do
           terraform apply -auto-approve && break || sleep 15
