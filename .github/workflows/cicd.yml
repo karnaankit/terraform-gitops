@@ -1,9 +1,7 @@
 name: Infrastructure - Plan and apply
-
 env:
-  artifact_name: gitops
-
-on:
+  package_name: gitops
+"on":
   workflow_dispatch:
     inputs:
       environment:
@@ -11,15 +9,13 @@ on:
         required: true
         type: choice
         options:
-          - 'dev'
-          - 'prod'
-
+          - dev
+          - prod
   pull_request:
     types:
       - synchronize
       - opened
       - closed
-      
     branches:
       - dev
       - main
@@ -36,12 +32,12 @@ jobs:
             echo "env_name=dev" >> $GITHUB_ENV
           fi
     outputs:
-      env_name: '${{ env.env_name }}'
-      
+      env_name: ${{ env.env_name }}
   build:
     name: Deploy and Release
     runs-on: ubuntu-latest
-    needs: [resolve-env]
+    needs:
+      - resolve-env
     environment: ${{ needs.resolve-env.outputs.env_name }}
     env:
       GH_TOKEN: ${{ secrets.GH_TOKEN }}
@@ -63,7 +59,6 @@ jobs:
           AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
       - name: Terraform validate
         run: terraform validate
-        
       - name: Switch to required workspace
         run: terraform workspace select -or-create $WORKSPACE
         env:
@@ -71,7 +66,6 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
-          
       - name: Terraform plan
         if: github.event_name == 'pull_request' && (github.event.action == 'opened' || github.event.action == 'synchronize')
         run: terraform plan
@@ -86,14 +80,6 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
-      - name: Sync dist folder to S3
-        if: github.event.pull_request.merged || github.event_name == 'workflow_dispatch'
-        run: aws s3 sync ./dist s3://ankit-gitops-terraform-$WORKSPACE
-        env:
-          WORKSPACE: ${{ needs.resolve-env.outputs.env_name }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
       - name: Setup semver bash
         run: |
           sudo curl https://raw.githubusercontent.com/fsaintjacques/semver-tool/3.0.0/src/semver -o /usr/local/bin/semver && sudo chmod +x /usr/local/bin/semver
@@ -101,9 +87,8 @@ jobs:
       - name: Get version
         id: get-version
         run: |
-          set -x
           git fetch --tags
-          last_version=$(git tag --sort=-version:refname | grep -P "^$artifact_name@v\d+.\d+.\d+$" | head -n 1 | cut -d v -f 2)
+          last_version=$(git tag --sort=-version:refname | grep -P "^$package_name@v\d+.\d+.\d+$" | head -n 1 | cut -d v -f 2)
           if [ -z "$last_version" ]; then
             new_version=1.0.0
           elif [[ ${{ github.head_ref }} =~ ^"major" ]]; then
@@ -115,7 +100,7 @@ jobs:
           fi
           echo "new_version=$new_version" >> $GITHUB_OUTPUT
       - name: Prepare artifact
-        id: prep
+        id: prepare
         run: |
           BUILD_NUM=$(echo $GITHUB_RUN_NUMBER)
           BUILD_ID=$(echo $GITHUB_SHA | head -c7)
@@ -140,14 +125,14 @@ jobs:
         with:
           github_token: ${{ secrets.GH_TOKEN }}
           custom_tag: ${{ steps.prepare.outputs.version }}
-          tag_prefix: "gitops"
+          tag_prefix: ""
       - name: Create release
         if: github.event.pull_request.merged
         uses: marvinpinto/action-automatic-releases@latest
         with:
           repo_token: ${{ secrets.GH_TOKEN }}
           prerelease: false
-          title: ${{ steps.prep.outputs.version }}
-          automatic_release_tag: ${{ steps.prep.outputs.version }}
+          title: ${{ steps.prepare.outputs.version }}
+          automatic_release_tag: ${{ steps.prepare.outputs.version }}
           files: |
-            ${{ steps.prep.outputs.artifact_name }}
+            ${{ steps.prepare.outputs.artifact_name }}
