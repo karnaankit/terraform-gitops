@@ -140,7 +140,7 @@ jobs:
         with:
           github_token: ${{ secrets.GH_TOKEN }}
           custom_tag: ${{ steps.prep.outputs.version }}
-          tag_prefix: ""
+          tag_prefix: "gitops"
       - name: Create release
         if: github.event.pull_request.merged
         uses: marvinpinto/action-automatic-releases@latest
