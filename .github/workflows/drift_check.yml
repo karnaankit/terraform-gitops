@@ -2,8 +2,8 @@ name: Check for Drift
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '0 */2 * * *' # Runs every two hours
+  #schedule:
+  #  - cron: '0 */2 * * *' # Runs every two hours
 
 jobs:
   check-drift:
